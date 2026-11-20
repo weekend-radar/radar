@@ -1,5 +1,18 @@
 {
-  "channels": ["sgweekend", "sgdealsandfreebies", "freebiessg", "sgcode", "sgCheapo"],
+  "channels": ["good2gosg",
+  "confirmgood",
+  "sgweekend",
+  "confirmgood",
+  "thewackyduo",
+  "sgfreebies",
+  "sgbudgetbabes",
+  "sgdealsandfreebies",
+  "freebiessg",  
+    "sgcode",
+    "sgCheapo",
+    "karangkaki",
+  "kiasuparents",
+  "goodlobang"],
   "pages_per_channel": 3,
   "keep_days": 21
 }
