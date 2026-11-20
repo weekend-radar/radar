@@ -1,19 +1,5 @@
 {
-  "_note": "Add PUBLIC Telegram channel usernames only (the part after t.me/). Replace the placeholders below.",
-  "channels": ["good2gosg",
-  "confirmgood",
-  "sgweekend",
-  "confirmgood",
-  "thewackyduo",
-  "sgfreebies",
-  "sgbudgetbabes",
-  "sgdealsandfreebies",
-  "freebiessg",  
-    "sgcode",
-    "sgCheapo",
-    "karangkaki",
-  "kiasuparents",
-  "goodlobang"],
+  "channels": ["sgweekend", "sgdealsandfreebies", "freebiessg", "sgcode", "sgCheapo"],
   "pages_per_channel": 3,
   "keep_days": 21
 }

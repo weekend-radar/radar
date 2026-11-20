@@ -20,11 +20,13 @@
   .card img{width:100%;max-height:260px;object-fit:cover;display:block}
   .body{padding:12px 14px}
   .meta{font-size:.74rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
-  .text{white-space:pre-wrap;font-size:.92rem;line-height:1.4;margin:8px 0;max-height:9.5em;overflow:hidden;position:relative}
+  .text{white-space:pre-wrap;font-size:.92rem;line-height:1.4;margin:8px 0;max-height:9.5em;overflow:hidden;word-break:break-word}
   .text.open{max-height:none}
   .tags span{display:inline-block;font-size:.7rem;background:#eef2ff;color:var(--accent);border-radius:6px;padding:2px 7px;margin:0 4px 4px 0}
   .tags span.Free{background:#e5f7ec;color:var(--free);font-weight:600}
   .tags span.wk{background:#fff3d6;color:#a86400;font-weight:600}
+  .also{font-size:.74rem;color:var(--muted);margin-top:4px}
+  .also a{color:var(--muted)}
   .actions{display:flex;gap:14px;font-size:.85rem;margin-top:6px}
   .actions a,.actions button{color:var(--accent);background:none;border:0;padding:0;font-size:.85rem;cursor:pointer;text-decoration:none}
   .empty{text-align:center;color:var(--muted);padding:40px 10px}
@@ -44,34 +46,27 @@ const CATS = ["Free","Exhibition","Festival","Workshop","Outdoor","Music/Show","
 const MONTHS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
 let events = [], active = new Set(), weekendOnly = true;
 
-// ---- Work out the coming weekend (Sat/Sun). If today is Sat/Sun, use today's weekend.
 function weekendRange(){
   const now = new Date(); now.setHours(0,0,0,0);
-  const d = now.getDay();                 // 0 Sun ... 6 Sat
-  const sat = new Date(now);
-  sat.setDate(now.getDate() + (d===0 ? -1 : 6-d));
+  const d = now.getDay();
+  const sat = new Date(now); sat.setDate(now.getDate() + (d===0 ? -1 : 6-d));
   const sun = new Date(sat); sun.setDate(sat.getDate()+1);
   return [sat, sun];
 }
 const [SAT, SUN] = weekendRange();
-const same = (a,b)=>a.getDate()===b.getDate()&&a.getMonth()===b.getMonth();
 
-// ---- Does the post mention this weekend? (dates like "22 Nov", "Nov 22", "22/11", or "this sat/sun/weekend")
 function mentionsWeekend(t){
   const s = t.toLowerCase();
-  const days = [SAT,SUN];
-  for(const dt of days){
+  for(const dt of [SAT,SUN]){
     const dd = dt.getDate(), mm = dt.getMonth(), mon = MONTHS[mm];
     if(new RegExp(`\\b${dd}(st|nd|rd|th)?\\s*(${mon})`).test(s)) return true;
     if(new RegExp(`\\b${mon}[a-z]*\\s*${dd}\\b`).test(s)) return true;
     if(new RegExp(`\\b${dd}[/\\-]${mm+1}\\b`).test(s)) return true;
   }
-  return /this (weekend|sat|sun)|(sat|sun)(urday|day)?\s*(&|and|-|to)\s*(sat|sun)|weekend/.test(s);
+  return /this (weekend|sat|sun)|weekend/.test(s);
 }
-// Posts from last 5 days with no explicit date still count as "recent"
 const recent = e => e.date && (Date.now()-new Date(e.date)) < 5*864e5;
-
-function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function linkify(s){return esc(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}
 
 function render(){
@@ -90,7 +85,8 @@ function render(){
       <div class="body">
         <div class="meta"><span>@${esc(e.channel)}</span><span>${e.date?new Date(e.date).toLocaleString([], {dateStyle:"medium",timeStyle:"short"}):""}</span></div>
         <div class="text" id="t${i}">${linkify(e.text)}</div>
-        <div class="tags">${e._wk?'<span class="wk">📅 This weekend</span>':""}${e.categories.map(c=>`<span class="${c}">${c}</span>`).join("")}</div>
+        <div class="tags">${e._wk?'<span class="wk">📅 This weekend</span>':""}${e.categories.map(c=>`<span class="${esc(c)}">${esc(c)}</span>`).join("")}</div>
+        ${(e.also_in&&e.also_in.length)?`<div class="also">🔁 Also posted in: ${e.also_in.map(d=>`<a href="${esc(d.link)}" target="_blank" rel="noopener">@${esc(d.channel)}</a>`).join(", ")}</div>`:""}
         <div class="actions">
           ${e.text.length>260?`<button onclick="document.getElementById('t${i}').classList.toggle('open')">Read more</button>`:""}
           <a href="${esc(e.link)}" target="_blank" rel="noopener">Open in Telegram ↗</a>
@@ -115,7 +111,7 @@ function buildChips(){
 fetch("data/events.json?"+Date.now()).then(r=>r.json()).then(d=>{
   events = (d.events||[]).map(e=>({...e,_wk:mentionsWeekend(e.text)}));
   document.getElementById("updated").textContent =
-    d.updated ? `Updated ${new Date(d.updated).toLocaleString()} · ${events.length} posts` : "No data yet – run the GitHub Action once.";
+    d.updated ? `Updated ${new Date(d.updated).toLocaleString()} · ${events.length} unique posts` : "No data yet – run the GitHub Action once.";
   render();
 }).catch(()=>{document.getElementById("updated").textContent="Could not load data/events.json";});
 
