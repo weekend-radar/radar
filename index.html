@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekend Radar</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#1c2333;--muted:#6b7488;--accent:#2b6cff;--free:#12a150}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{position:sticky;top:0;z-index:5;background:#fff;padding:12px 14px;box-shadow:0 1px 6px #0001}
+  h1{font-size:1.15rem;margin:0 0 2px}
+  .sub{font-size:.75rem;color:var(--muted);margin-bottom:8px}
+  input[type=search]{width:100%;padding:10px 12px;border:1px solid #d5dbe8;border-radius:10px;font-size:1rem}
+  .chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 2px;scrollbar-width:none}
+  .chip{white-space:nowrap;border:1px solid #d5dbe8;background:#fff;border-radius:999px;padding:6px 12px;font-size:.82rem;cursor:pointer}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  main{max-width:760px;margin:0 auto;padding:12px}
+  .card{background:var(--card);border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 4px #0001}
+  .card img{width:100%;max-height:260px;object-fit:cover;display:block}
+  .body{padding:12px 14px}
+  .meta{font-size:.74rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .text{white-space:pre-wrap;font-size:.92rem;line-height:1.4;margin:8px 0;max-height:9.5em;overflow:hidden;position:relative}
+  .text.open{max-height:none}
+  .tags span{display:inline-block;font-size:.7rem;background:#eef2ff;color:var(--accent);border-radius:6px;padding:2px 7px;margin:0 4px 4px 0}
+  .tags span.Free{background:#e5f7ec;color:var(--free);font-weight:600}
+  .tags span.wk{background:#fff3d6;color:#a86400;font-weight:600}
+  .actions{display:flex;gap:14px;font-size:.85rem;margin-top:6px}
+  .actions a,.actions button{color:var(--accent);background:none;border:0;padding:0;font-size:.85rem;cursor:pointer;text-decoration:none}
+  .empty{text-align:center;color:var(--muted);padding:40px 10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎯 Weekend Radar</h1>
+  <div class="sub" id="updated">Loading…</div>
+  <input type="search" id="q" placeholder="Search e.g. exhibition, free, Sentosa…">
+  <div class="chips" id="chips"></div>
+</header>
+<main id="list"></main>
+
+<script>
+const CATS = ["Free","Exhibition","Festival","Workshop","Outdoor","Music/Show","Family","Food"];
+const MONTHS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+let events = [], active = new Set(), weekendOnly = true;
+
+// ---- Work out the coming weekend (Sat/Sun). If today is Sat/Sun, use today's weekend.
+function weekendRange(){
+  const now = new Date(); now.setHours(0,0,0,0);
+  const d = now.getDay();                 // 0 Sun ... 6 Sat
+  const sat = new Date(now);
+  sat.setDate(now.getDate() + (d===0 ? -1 : 6-d));
+  const sun = new Date(sat); sun.setDate(sat.getDate()+1);
+  return [sat, sun];
+}
+const [SAT, SUN] = weekendRange();
+const same = (a,b)=>a.getDate()===b.getDate()&&a.getMonth()===b.getMonth();
+
+// ---- Does the post mention this weekend? (dates like "22 Nov", "Nov 22", "22/11", or "this sat/sun/weekend")
+function mentionsWeekend(t){
+  const s = t.toLowerCase();
+  const days = [SAT,SUN];
+  for(const dt of days){
+    const dd = dt.getDate(), mm = dt.getMonth(), mon = MONTHS[mm];
+    if(new RegExp(`\\b${dd}(st|nd|rd|th)?\\s*(${mon})`).test(s)) return true;
+    if(new RegExp(`\\b${mon}[a-z]*\\s*${dd}\\b`).test(s)) return true;
+    if(new RegExp(`\\b${dd}[/\\-]${mm+1}\\b`).test(s)) return true;
+  }
+  return /this (weekend|sat|sun)|(sat|sun)(urday|day)?\s*(&|and|-|to)\s*(sat|sun)|weekend/.test(s);
+}
+// Posts from last 5 days with no explicit date still count as "recent"
+const recent = e => e.date && (Date.now()-new Date(e.date)) < 5*864e5;
+
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function linkify(s){return esc(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}
+
+function render(){
+  const q = document.getElementById("q").value.toLowerCase().trim();
+  const rows = events.filter(e=>{
+    if(active.size && ![...active].every(c=>e.categories.includes(c))) return false;
+    if(q && !(e.text.toLowerCase().includes(q) || e.channel.toLowerCase().includes(q))) return false;
+    if(weekendOnly && !(e._wk || recent(e))) return false;
+    return true;
+  }).sort((a,b)=> (b._wk-a._wk) || (new Date(b.date)-new Date(a.date)));
+  const list = document.getElementById("list");
+  if(!rows.length){ list.innerHTML = '<div class="empty">Nothing found. Try turning off “This weekend” or clearing filters.</div>'; return; }
+  list.innerHTML = rows.map((e,i)=>`
+    <article class="card">
+      ${e.image?`<img loading="lazy" src="${esc(e.image)}" alt="">`:""}
+      <div class="body">
+        <div class="meta"><span>@${esc(e.channel)}</span><span>${e.date?new Date(e.date).toLocaleString([], {dateStyle:"medium",timeStyle:"short"}):""}</span></div>
+        <div class="text" id="t${i}">${linkify(e.text)}</div>
+        <div class="tags">${e._wk?'<span class="wk">📅 This weekend</span>':""}${e.categories.map(c=>`<span class="${c}">${c}</span>`).join("")}</div>
+        <div class="actions">
+          ${e.text.length>260?`<button onclick="document.getElementById('t${i}').classList.toggle('open')">Read more</button>`:""}
+          <a href="${esc(e.link)}" target="_blank" rel="noopener">Open in Telegram ↗</a>
+        </div>
+      </div>
+    </article>`).join("");
+}
+
+function buildChips(){
+  const box = document.getElementById("chips");
+  const wk = document.createElement("div");
+  wk.className="chip on"; wk.textContent="📅 This weekend";
+  wk.onclick=()=>{weekendOnly=!weekendOnly; wk.classList.toggle("on",weekendOnly); render();};
+  box.appendChild(wk);
+  CATS.forEach(c=>{
+    const el=document.createElement("div"); el.className="chip"; el.textContent=c;
+    el.onclick=()=>{active.has(c)?active.delete(c):active.add(c); el.classList.toggle("on"); render();};
+    box.appendChild(el);
+  });
+}
+
+fetch("data/events.json?"+Date.now()).then(r=>r.json()).then(d=>{
+  events = (d.events||[]).map(e=>({...e,_wk:mentionsWeekend(e.text)}));
+  document.getElementById("updated").textContent =
+    d.updated ? `Updated ${new Date(d.updated).toLocaleString()} · ${events.length} posts` : "No data yet – run the GitHub Action once.";
+  render();
+}).catch(()=>{document.getElementById("updated").textContent="Could not load data/events.json";});
+
+buildChips();
+document.getElementById("q").addEventListener("input",render);
+</script>
+</body>
+</html>
